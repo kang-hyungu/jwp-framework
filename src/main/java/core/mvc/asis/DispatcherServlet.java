@@ -1,6 +1,7 @@
 package core.mvc.asis;
 
 import core.mvc.HandlerMapping;
+import core.mvc.JspView;
 import core.mvc.ModelAndView;
 import core.mvc.View;
 import core.mvc.tobe.AnnotationHandlerMapping;
@@ -77,7 +78,8 @@ public class DispatcherServlet extends HttpServlet {
     private ModelAndView getModelAndView(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception {
         final ModelAndView modelAndView;
         if (handler instanceof Controller) {
-            modelAndView = ((Controller)handler).execute(req, resp);
+            final String path = ((Controller)handler).execute(req, resp);
+            modelAndView = new ModelAndView(new JspView(path));
         } else if (handler instanceof HandlerExecution) {
             modelAndView = ((HandlerExecution)handler).handle(req, resp);
         } else {
