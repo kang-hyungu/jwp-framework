@@ -1,11 +1,12 @@
 package core.mvc.asis;
 
 import core.mvc.HandlerMapping;
-import core.mvc.JspView;
 import core.mvc.ModelAndView;
 import core.mvc.View;
+import core.mvc.tobe.AnnotationHandlerAdapter;
 import core.mvc.tobe.AnnotationHandlerMapping;
-import core.mvc.tobe.HandlerExecution;
+import core.mvc.tobe.HandlerAdapter;
+import core.mvc.tobe.LegacyHandlerAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,14 +27,15 @@ public class DispatcherServlet extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(DispatcherServlet.class);
 
     private final List<HandlerMapping> handlerMappings = new ArrayList<>();
+    private final List<HandlerAdapter> handlerAdapters = new ArrayList<>();
 
     @Override
     public void init() throws ServletException {
-        final LegacyHandlerMapping legacyHandlerMapping = createLegacyHandlerMapping();
-        final AnnotationHandlerMapping annotationHandlerMapping = createAnnotationHandlerMapping();
+        handlerMappings.add(createLegacyHandlerMapping());
+        handlerMappings.add(createAnnotationHandlerMapping());
 
-        handlerMappings.add(legacyHandlerMapping);
-        handlerMappings.add(annotationHandlerMapping);
+        handlerAdapters.add(new LegacyHandlerAdapter());
+        handlerAdapters.add(new AnnotationHandlerAdapter());
     }
 
     @Override
@@ -76,16 +78,12 @@ public class DispatcherServlet extends HttpServlet {
     }
 
     private ModelAndView getModelAndView(HttpServletRequest req, HttpServletResponse resp, Object handler) throws Exception {
-        final ModelAndView modelAndView;
-        if (handler instanceof Controller) {
-            final String path = ((Controller)handler).execute(req, resp);
-            modelAndView = new ModelAndView(new JspView(path));
-        } else if (handler instanceof HandlerExecution) {
-            modelAndView = ((HandlerExecution)handler).handle(req, resp);
-        } else {
-            throw new ServletException("페이지를 찾을 수 없습니다.");
-        }
-        return modelAndView;
+        final HandlerAdapter adapter = handlerAdapters.stream()
+                .filter(handlerAdapter -> handlerAdapter.supports(handler))
+                .findFirst()
+                .orElseThrow(() -> new ServletException("페이지를 찾을 수 없습니다."));
+
+        return adapter.handle(req, resp, handler);
     }
 
     private void render(HttpServletRequest req, HttpServletResponse resp, ModelAndView modelAndView) throws Exception {
